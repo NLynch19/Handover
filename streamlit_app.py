@@ -164,6 +164,6 @@ elif mode == "Report Mode":
                 file_name="moc_summary.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
-Full MOC dashboard with Entry + Report Mode
+#Full MOC dashboard with Entry + Report Mode
 
 
