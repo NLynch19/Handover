@@ -2,168 +2,193 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from docx import Document
-from docx.shared import Inches, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="📊 MOC Dashboard", layout="centered")
-st.title("📊 MOC Task Manager")
+st.set_page_config(page_title="MOC Task Manager", layout="wide")
+st.title("⚡ MOC Electrical Task Manager")
 
-# Mode selector
-mode = st.radio("Choose Mode", ["Entry Mode", "Report Mode"])
+# Initialize session state
+if "task_df" not in st.session_state:
+    st.session_state.task_df = pd.DataFrame(columns=[
+        "ID No", "AREA", "Site", "MOC No", "Assigned Dept", "Assigned Contractor",
+        "Project Number", "Project Name", "Project Title", "Project Manager",
+        "MOC Coordinator", "Brief Description", "Deliverables", "Deliverables Location",
+        "Target Finish", "Progress", "Condition", "Action Holder"
+    ])
 
-# ---------------- Entry Mode ----------------
-if mode == "Entry Mode":
-    if "tasks" not in st.session_state:
-        st.session_state["tasks"] = []
+# Entry Mode
+st.header("📥 Entry Mode")
 
-    with st.form("task_form"):
-        department = st.selectbox("Department", ["Ops", "Eng", "Safety", "HR"])
-        status = st.selectbox("Status", ["Complete", "Pending", "In Progress"])
-        date = st.date_input("Date")
-        description = st.text_area("Task Description")
-        submitted = st.form_submit_button("Add Task")
+with st.form("moc_entry_form"):
+    col1, col2, col3 = st.columns(3)
+    id_no = col1.text_input("ID No")
+    area = col2.selectbox("AREA", ["Water", "South", "North", "Other"])
+    site = col3.text_input("Site")
 
-        if submitted:
-            st.session_state["tasks"].append({
-                "Department": department,
-                "Status": status,
-                "Date": date,
-                "Description": description
-            })
-            st.success("✅ Task added!")
+    col4, col5, col6 = st.columns(3)
+    moc_no = col4.text_input("MOC No")
+    assigned_dept = col5.selectbox("Assigned Dept", ["Eng", "Ops", "QA", "Other"])
+    contractor = col6.text_input("Assigned Contractor / Engineer")
 
-    df = pd.DataFrame(st.session_state["tasks"])
-    if not df.empty:
-        st.subheader("📋 Current Tasks")
-        st.dataframe(df)
+    col7, col8, col9 = st.columns(3)
+    project_number = col7.text_input("Project Number")
+    project_name = col8.text_input("Project Name")
+    project_title = col9.text_input("Project / MOC Title")
 
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False, sheet_name="Tasks")
-        output.seek(0)
+    col10, col11 = st.columns(2)
+    project_manager = col10.text_input("Project Manager / Engineer")
+    moc_coordinator = col11.text_input("MOC Coordinator / Planner")
 
-        st.download_button(
-            label="📥 Download Excel File",
-            data=output,
-            file_name="moc_tasks.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    brief_description = st.text_area("Brief Description")
 
-# ---------------- Report Mode ----------------
-elif mode == "Report Mode":
-    uploaded_file = st.file_uploader("📁 Upload MOC Excel file", type=["xlsx"])
+    col12, col13 = st.columns(2)
+    deliverables = col12.text_area("Deliverables & Updates")
+    deliverables_location = col13.text_input("Deliverables Location")
 
-    if uploaded_file:
-        try:
-            df = pd.read_excel(uploaded_file)
-        except Exception as e:
-            st.error(f"Error reading Excel file: {e}")
-            st.stop()
+    col14, col15, col16, col17 = st.columns(4)
+    target_finish = col14.date_input("Target Finish")
+    progress = col15.text_input("Progress")
+    condition = col16.selectbox("Condition", ["Open", "Closed", "In Progress"])
+    action_holder = col17.text_input("Action Holder")
 
-        required_cols = {"Department", "Status", "Date"}
-        if not required_cols.issubset(df.columns):
-            st.error(f"Missing required columns: {required_cols}")
-            st.stop()
+    submitted = st.form_submit_button("➕ Add Task")
+    if submitted:
+        new_task = {
+            "ID No": id_no,
+            "AREA": area,
+            "Site": site,
+            "MOC No": moc_no,
+            "Assigned Dept": assigned_dept,
+            "Assigned Contractor": contractor,
+            "Project Number": project_number,
+            "Project Name": project_name,
+            "Project Title": project_title,
+            "Project Manager": project_manager,
+            "MOC Coordinator": moc_coordinator,
+            "Brief Description": brief_description,
+            "Deliverables": deliverables,
+            "Deliverables Location": deliverables_location,
+            "Target Finish": target_finish.strftime("%Y-%m-%d"),
+            "Progress": progress,
+            "Condition": condition,
+            "Action Holder": action_holder
+        }
 
-        df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
-        df = df.dropna(subset=["Date"])
-
-        st.sidebar.header("🔍 Filter Options")
-        selected_depts = st.sidebar.multiselect("🏢 Department", df["Department"].unique())
-        selected_status = st.sidebar.multiselect("📌 Status", df["Status"].unique())
-        date_range = st.sidebar.date_input("📅 Date Range", [df["Date"].min(), df["Date"].max()])
-
-        filtered_df = df[
-            df["Department"].isin(selected_depts) &
-            df["Status"].isin(selected_status) &
-            df["Date"].between(date_range[0], date_range[1])
-        ]
-
-        st.subheader("📊 Completion by Department")
-        completion_rate = filtered_df.groupby("Department")["Status"].apply(lambda x: (x == "Complete").mean())
-        st.bar_chart(completion_rate)
-
-        st.subheader("📄 Filtered Task Data")
-        st.dataframe(filtered_df)
-
-        st.download_button(
-            label="📥 Download Filtered CSV",
-            data=filtered_df.to_csv(index=False).encode("utf-8"),
-            file_name="filtered_moc_data.csv",
-            mime="text/csv"
-        )
-
-        def create_word_summary(df):
-            doc = Document()
-            doc.add_heading("MOC Task Summary", level=0).alignment = WD_ALIGN_PARAGRAPH.CENTER
-            doc.add_paragraph(f"Generated on: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}")
-            doc.add_page_break()
-
-            total = len(df)
-            completed = (df["Status"] == "Complete").sum()
-            pending = (df["Status"] == "Pending").sum()
-            rate = round(completed / total * 100, 2) if total else 0
-
-            doc.add_heading("Summary Overview", level=1)
-            summary_table = doc.add_table(rows=4, cols=2)
-            summary_table.style = "Table Grid"
-            summary_table.cell(0, 0).text = "Total Tasks"
-            summary_table.cell(0, 1).text = str(total)
-            summary_table.cell(1, 0).text = "Completed"
-            summary_table.cell(1, 1).text = str(completed)
-            summary_table.cell(2, 0).text = "Pending"
-            summary_table.cell(2, 1).text = str(pending)
-            summary_table.cell(3, 0).text = "Completion Rate (%)"
-            summary_table.cell(3, 1).text = str(rate)
-            doc.add_paragraph()
-
-            fig, ax = plt.subplots()
-            completion_rate.plot(kind="bar", ax=ax, color="skyblue")
-            ax.set_ylabel("Completion Rate")
-            ax.set_title("Completion by Department")
-            plt.tight_layout()
-
-            chart_stream = BytesIO()
-            plt.savefig(chart_stream, format="png")
-            chart_stream.seek(0)
-            doc.add_picture(chart_stream, width=Inches(5.5))
-            doc.add_paragraph()
-
-            for dept, group in df.groupby("Department"):
-                doc.add_heading(dept, level=2)
-                table = doc.add_table(rows=1, cols=len(group.columns))
-                table.style = "Table Grid"
-
-                hdr_cells = table.rows[0].cells
-                for i, col in enumerate(group.columns):
-                    hdr_cells[i].text = col
-                    hdr_cells[i].paragraphs[0].runs[0].font.bold = True
-
-                for _, row in group.iterrows():
-                    row_cells = table.add_row().cells
-                    for i, val in enumerate(row):
-                        cell_text = str(val)
-                        row_cells[i].text = cell_text
-                        if group.columns[i] == "Status" and cell_text.lower() == "pending":
-                            run = row_cells[i].paragraphs[0].runs[0]
-                            run.font.color.rgb = RGBColor(255, 0, 0)
-
-                doc.add_paragraph()
-
-            buffer = BytesIO()
-            doc.save(buffer)
-            buffer.seek(0)
-            return buffer
-
-        if st.button("📝 Generate Word Summary"):
-            word_buffer = create_word_summary(filtered_df)
-            st.download_button(
-                label="📄 Download Word Summary",
-                data=word_buffer,
-                file_name="moc_summary.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if moc_no in st.session_state.task_df["MOC No"].values:
+            st.session_state.task_df.loc[
+                st.session_state.task_df["MOC No"] == moc_no
+            ] = new_task
+            st.success(f"✅ Task '{moc_no}' updated.")
+        else:
+            st.session_state.task_df = pd.concat(
+                [st.session_state.task_df, pd.DataFrame([new_task])],
+                ignore_index=True
             )
-#Full MOC dashboard with Entry + Report Mode
+            st.success(f"✅ Task '{moc_no}' added.")
 
+# Display and manage tasks
+st.subheader("📋 Current Tasks")
+st.dataframe(st.session_state.task_df)
 
+search_moc = st.text_input("🔍 Search by MOC No")
+if search_moc:
+    result = st.session_state.task_df[
+        st.session_state.task_df["MOC No"] == search_moc
+    ]
+    st.write(result if not result.empty else "No match found.")
+
+if st.button("🗑️ Delete Task"):
+    st.session_state.task_df = st.session_state.task_df[
+        st.session_state.task_df["MOC No"] != search_moc
+    ]
+    st.success(f"Task '{search_moc}' deleted.")
+
+if st.button("🧹 Clear All Tasks"):
+    st.session_state.task_df = st.session_state.task_df.iloc[0:0]
+    st.success("All tasks cleared.")
+
+# Excel export
+def get_excel_download(df):
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False)
+    return output.getvalue()
+
+excel_data = get_excel_download(st.session_state.task_df)
+st.download_button(
+    label="📥 Download Excel",
+    data=excel_data,
+    file_name="MOC_Tasks.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+
+# Report Mode
+st.header("📊 Report Mode")
+
+uploaded_file = st.file_uploader("📤 Upload MOC Excel File", type=["xlsx"])
+if uploaded_file:
+    df = pd.read_excel(uploaded_file)
+    st.success("✅ File uploaded and parsed.")
+
+    col1, col2, col3 = st.columns(3)
+    filter_dept = col1.selectbox("Assigned Dept", ["All"] + sorted(df["Assigned Dept"].dropna().unique()))
+    filter_status = col2.selectbox("Condition", ["All"] + sorted(df["Condition"].dropna().unique()))
+    filter_site = col3.selectbox("Site", ["All"] + sorted(df["Site"].dropna().unique()))
+
+    filtered_df = df.copy()
+    if filter_dept != "All":
+        filtered_df = filtered_df[filtered_df["Assigned Dept"] == filter_dept]
+    if filter_status != "All":
+        filtered_df = filtered_df[filtered_df["Condition"] == filter_status]
+    if filter_site != "All":
+        filtered_df = filtered_df[filtered_df["Site"] == filter_site]
+
+    st.dataframe(filtered_df)
+
+    st.subheader("📊 Progress Overview")
+    progress_counts = filtered_df["Condition"].value_counts()
+    st.bar_chart(progress_counts)
+
+    def generate_word_summary(df, filename="MOC_Report.docx"):
+        doc = Document()
+        doc.add_heading("MOC Task Summary", level=1)
+
+        section = doc.sections[0]
+        header = section.header
+        header_paragraph = header.paragraphs[0]
+        header_paragraph.text = "MOC Electrical Task Manager"
+        header_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+        footer = section.footer
+        footer_paragraph = footer.paragraphs[0]
+        footer_paragraph.text = "Page "
+        footer_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+
+        grouped = df.groupby("Assigned Dept")
+        for dept, group in grouped:
+            doc.add_heading(f"Department: {dept}", level=2)
+            for _, row in group.iterrows():
+                doc.add_heading(f"MOC No: {row['MOC No']}", level=3)
+                doc.add_paragraph(f"Project Title: {row['Project Title']}")
+                doc.add_paragraph(f"Site: {row['Site']}")
+                doc.add_paragraph(f"Condition: {row['Condition']}")
+                doc.add_paragraph(f"Target Finish: {row['Target Finish']}")
+                doc.add_paragraph(f"Progress: {row['Progress']}")
+                doc.add_paragraph(f"Action Holder: {row['Action Holder']}")
+                doc.add_paragraph(f"Brief Description:\n{row['Brief Description']}")
+                doc.add_paragraph(f"Deliverables:\n{row['Deliverables']}")
+                doc.add_paragraph("-" * 40)
+
+        doc.save(filename)
+
+    if st.button("📝 Generate Word Summary"):
+        generate_word_summary(filtered_df)
+        with open("MOC_Report.docx", "rb") as f:
+            word_data = f.read()
+        st.download_button(
+            label="📥 Download Word Summary",
+            data=word_data,
+            file_name="MOC_Report.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
