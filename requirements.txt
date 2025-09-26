@@ -1,0 +1,6 @@
+streamlit
+pandas
+openpyxl
+python-docx
+matplotlib
+Add requirements.txt for Streamlit Cloud deployment
