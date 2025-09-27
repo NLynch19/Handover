@@ -1,7 +1,10 @@
 from datetime import datetime
 
 def get_next_id(df):
-    return int(df["ID No"].max()) + 1 if not df.empty else 1
+    if "ID No" in df.columns:
+        return int(df["ID No"].max()) + 1 if not df.empty else 1
+    else:
+        raise ValueError("❌ 'ID No' column not found in uploaded Excel file.")
 
 def track_changes(current, previous):
     return any(current.get(k) != previous.get(k) for k in current)
