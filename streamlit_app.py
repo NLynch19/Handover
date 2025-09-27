@@ -34,7 +34,10 @@ if "task_df" not in st.session_state:
 if "form_modified" not in st.session_state:
     st.session_state.form_modified = False
 
-next_id = get_next_id(st.session_state.task_df)
+if not st.session_state.task_df.empty:
+    next_id = get_next_id(st.session_state.task_df)
+else:
+    next_id = 1
 
 # Entry Mode
 st.header("📥 Entry Mode")
