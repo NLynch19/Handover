@@ -14,6 +14,16 @@ COLUMNS = [
     "Target Finish", "Progress", "Condition", "Action Holder", "STATUS", "Last Update"
 ]
 
+st.sidebar.header("📂 Upload Existing Data")
+uploaded_file = st.sidebar.file_uploader("Choose an Excel file", type=["xlsx"])
+
+if uploaded_file:
+    st.session_state.task_df = pd.read_excel(uploaded_file)
+    st.success("✅ Excel file loaded successfully.")
+    st.dataframe(st.session_state.task_df.head(10))  # Preview first 10 rows
+else:
+    st.session_state.task_df = load_excel(EXCEL_PATH, COLUMNS)
+
 st.set_page_config(page_title="MOC Task Manager", layout="wide")
 st.title("⚡ MOC Electrical Task Manager")
 
@@ -61,6 +71,8 @@ with st.form("moc_entry_form"):
     status = st.text_input("STATUS")
 
     submitted = st.form_submit_button("➕ Add Task")
+
+
 
 if submitted:
     form_data = {
