@@ -18,7 +18,7 @@ def load_excel(path, columns):
         st.error(f"❌ Error loading Excel file: {e}")
         return pd.DataFrame(columns=columns)
 
-def save_excel(df, path):
+def save_to_excel(df, path):
     """
     Saves the given DataFrame to an Excel file at the specified path.
     """
