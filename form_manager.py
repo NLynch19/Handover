@@ -29,4 +29,3 @@ def create_task_entry(form_data, next_id):
         "STATUS": form_data["status"],
         "Last Update": datetime.now().strftime("%Y-%m-%d %H:%M")
     }
-
