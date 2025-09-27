@@ -72,6 +72,22 @@ with st.form("moc_entry_form"):
 
     submitted = st.form_submit_button("➕ Add Task")
 
+st.header("🗑️ Delete Task")
+
+# Choose a task to delete by MOC No
+if not st.session_state.task_df.empty:
+    moc_options = st.session_state.task_df["MOC No"].dropna().unique().tolist()
+    selected_moc = st.selectbox("Select MOC No to delete", moc_options)
+
+    if st.button("❌ Delete Selected Task"):
+        before_count = len(st.session_state.task_df)
+        st.session_state.task_df = st.session_state.task_df[st.session_state.task_df["MOC No"] != selected_moc]
+        after_count = len(st.session_state.task_df)
+
+        save_to_excel(st.session_state.task_df, EXCEL_PATH)
+        st.success(f"✅ Deleted task '{selected_moc}' ({before_count - after_count} row removed)")
+else:
+    st.info("No tasks available to delete.")
 
 
 if submitted:
